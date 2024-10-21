@@ -52,15 +52,23 @@ def parse_etsy_product(url, session):
             if image_url and image_url not in image_urls:
                 image_urls.append(image_url)
     
-    # Get tags
-    tags = [tag.text.strip() for tag in soup.find_all('li', class_='wt-action-group__item-container')]
+    # Extract tags from related searches
+    tags = []
+    tags_section = soup.find('div', class_='tags-section-container')
+    if tags_section:
+        tag_links = tags_section.find_all('a', href=True)
+        for tag_link in tag_links:
+            # Извлекаем текст тега и очищаем его
+            tag_text = tag_link.get_text(strip=True)
+            if tag_text:
+                tags.append(tag_text)
     
     # Создаем словарь с базовой информацией
     product_data = {
         'title': title,
         'price': price,
         'description': description,
-        'tags': ', '.join(tags)
+        'tags': ', '.join(tags) if tags else "No tags found"
     }
     
     # Добавляем фотографии в отдельные колонки
@@ -76,7 +84,7 @@ def parse_etsy_product(url, session):
 def save_to_csv(data, filename='etsy_product.csv'):
     # Определяем порядок колонок
     columns = ['title', 'price', 'description', 'tags']
-    columns.extend([f'Photo {i}' for i in range(1, 11)])  # Добавляем колонки для фото
+    columns.extend([f'Photo {i}' for i in range(1, 11)])
     
     with open(filename, 'w', newline='', encoding='utf-8') as file:
         writer = csv.DictWriter(file, fieldnames=columns)
@@ -97,6 +105,7 @@ if product_data:
     print("Successfully parsed the product page.")
     print(f"Title: {product_data['title']}")
     print(f"Price: {product_data['price']}")
+    print(f"Tags: {product_data['tags']}")
     
     # Выводим URL каждой фотографии
     for i in range(1, 11):
