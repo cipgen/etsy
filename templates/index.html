@@ -13,24 +13,78 @@
             <!-- Header -->
             <div class="text-center mb-8">
                 <h1 class="text-4xl font-bold text-gray-800 mb-2">Etsy Product Parser</h1>
-                <p class="text-gray-600">Вставьте URL-адреса товаров Etsy для парсинга (по одному в строке)</p>
+                <p class="text-gray-600">Выберите способ загрузки URLs товаров Etsy</p>
             </div>
 
-            <!-- Main Form -->
+            <!-- Input Method Selector -->
             <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-                <textarea 
-                    x-model="urls" 
-                    :disabled="isProcessing"
-                    class="w-full h-48 p-4 border rounded-lg mb-4 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    placeholder="https://www.etsy.com/listing/...&#10;https://www.etsy.com/listing/..."></textarea>
-                
-                <button 
-                    @click="startParsing"
-                    :disabled="isProcessing || !urls.trim()"
-                    class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition duration-200">
-                    <span x-show="!isProcessing">Начать парсинг</span>
-                    <span x-show="isProcessing">Обработка...</span>
-                </button>
+                <div class="flex justify-center space-x-6 mb-6">
+                    <button 
+                        @click="inputMethod = 'manual'"
+                        :class="{'bg-blue-500 text-white': inputMethod === 'manual', 'bg-gray-200 text-gray-700': inputMethod !== 'manual'}"
+                        class="flex-1 py-3 px-6 rounded-lg font-medium transition duration-200 max-w-[200px]">
+                        Ввод URLs
+                    </button>
+                    <button 
+                        @click="inputMethod = 'file'"
+                        :class="{'bg-blue-500 text-white': inputMethod === 'file', 'bg-gray-200 text-gray-700': inputMethod !== 'file'}"
+                        class="flex-1 py-3 px-6 rounded-lg font-medium transition duration-200 max-w-[200px]">
+                        Загрузка файла
+                    </button>
+                </div>
+
+                <!-- Manual Input Section -->
+                <div x-show="inputMethod === 'manual'" x-transition>
+                    <div class="mb-4">
+                        <p class="text-sm text-gray-600 mb-2">Вставьте URL-адреса товаров Etsy (по одному в строке)</p>
+                        <textarea 
+                            x-model="urls" 
+                            :disabled="isProcessing"
+                            class="w-full h-48 p-4 border rounded-lg mb-4 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            placeholder="https://www.etsy.com/listing/...&#10;https://www.etsy.com/listing/..."></textarea>
+                    </div>
+                    <button 
+                        @click="startParsing"
+                        :disabled="isProcessing || !urls.trim()"
+                        class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition duration-200">
+                        <span x-show="!isProcessing">Начать парсинг</span>
+                        <span x-show="isProcessing">Обработка...</span>
+                    </button>
+                </div>
+
+                <!-- File Upload Section -->
+                <div x-show="inputMethod === 'file'" x-transition>
+                    <div class="mb-4">
+                        <p class="text-sm text-gray-600 mb-2">Загрузите файл со списком URL-адресов (один URL на строку)</p>
+                        <div class="flex items-center justify-center w-full">
+                            <label class="w-full flex flex-col items-center px-4 py-6 bg-white text-gray-700 rounded-lg border-2 border-dashed border-gray-300 cursor-pointer hover:bg-gray-50">
+                                <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <svg class="w-10 h-10 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                                    </svg>
+                                    <p class="mb-2 text-sm text-gray-500">
+                                        <span x-show="!selectedFile">Нажмите для выбора файла</span>
+                                        <span x-show="selectedFile" x-text="selectedFileName"></span>
+                                    </p>
+                                    <p class="text-xs text-gray-500">.txt или .csv файл</p>
+                                </div>
+                                <input 
+                                    type="file" 
+                                    class="hidden" 
+                                    accept=".txt,.csv"
+                                    @change="handleFileSelect"
+                                    :disabled="isProcessing">
+                            </label>
+                        </div>
+                    </div>
+                    <button 
+                        @click="startParsingFile"
+                        :disabled="isProcessing || !selectedFile"
+                        class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition duration-200">
+                        <span x-show="!isProcessing">Начать парсинг</span>
+                        <span x-show="isProcessing">Обработка...</span>
+                    </button>
+                </div>
             </div>
 
             <!-- Progress Section -->
@@ -62,7 +116,10 @@
     <script>
         function parserApp() {
             return {
+                inputMethod: 'manual',
                 urls: '',
+                selectedFile: null,
+                selectedFileName: '',
                 isProcessing: false,
                 isCompleted: false,
                 progress: 0,
@@ -72,7 +129,45 @@
                 filename: '',
                 progressText: '',
 
+                handleFileSelect(event) {
+                    const file = event.target.files[0];
+                    if (file) {
+                        this.selectedFile = file;
+                        this.selectedFileName = file.name;
+                    }
+                },
+
+                startParsingFile() {
+                    if (!this.selectedFile) return;
+
+                    const formData = new FormData();
+                    formData.append('file', this.selectedFile);
+
+                    this.isProcessing = true;
+                    this.isCompleted = false;
+                    this.progress = 0;
+                    this.status = '';
+
+                    fetch('/parse-file', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            this.status = 'error';
+                            this.isProcessing = false;
+                            return;
+                        }
+                        this.total = data.total;
+                        this.checkProgress();
+                        this.checkResult();
+                    });
+                },
+
                 startParsing() {
+                    if (!this.urls.trim()) return;
+
                     this.isProcessing = true;
                     this.isCompleted = false;
                     this.progress = 0;
