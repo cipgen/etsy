@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Etsy Parser</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@2.8.2/dist/alpine.min.js" defer></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div x-data="parserApp()" class="container mx-auto px-4 py-8">
+        <div class="max-w-3xl mx-auto">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <h1 class="text-4xl font-bold text-gray-800 mb-2">Etsy Product Parser</h1>
+                <p class="text-gray-600">Вставьте URL-адреса товаров Etsy для парсинга (по одному в строке)</p>
+            </div>
+
+            <!-- Main Form -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+                <textarea 
+                    x-model="urls" 
+                    :disabled="isProcessing"
+                    class="w-full h-48 p-4 border rounded-lg mb-4 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    placeholder="https://www.etsy.com/listing/...&#10;https://www.etsy.com/listing/..."></textarea>
+                
+                <button 
+                    @click="startParsing"
+                    :disabled="isProcessing || !urls.trim()"
+                    class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition duration-200">
+                    <span x-show="!isProcessing">Начать парсинг</span>
+                    <span x-show="isProcessing">Обработка...</span>
+                </button>
+            </div>
+
+            <!-- Progress Section -->
+            <div x-show="isProcessing || isCompleted" class="bg-white rounded-lg shadow-lg p-6">
+                <div class="mb-4">
+                    <div class="flex justify-between mb-2">
+                        <span class="text-sm font-medium text-gray-700">Прогресс</span>
+                        <span class="text-sm font-medium text-gray-700" x-text="progressText"></span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div class="bg-blue-500 h-2.5 rounded-full transition-all duration-300"
+                             :style="'width: ' + progress + '%'"></div>
+                    </div>
+                </div>
+
+                <!-- Status Messages -->
+                <div x-show="status" class="mt-4">
+                    <div x-show="status === 'completed'" class="text-green-600">
+                        ✅ Парсинг завершен! Файл сохранен как: <span x-text="filename" class="font-mono"></span>
+                    </div>
+                    <div x-show="status === 'error'" class="text-red-600">
+                        ❌ Произошла ошибка при парсинге
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function parserApp() {
+            return {
+                urls: '',
+                isProcessing: false,
+                isCompleted: false,
+                progress: 0,
+                total: 0,
+                current: 0,
+                status: '',
+                filename: '',
+                progressText: '',
+
+                startParsing() {
+                    this.isProcessing = true;
+                    this.isCompleted = false;
+                    this.progress = 0;
+                    this.status = '';
+
+                    fetch('/parse', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: 'urls=' + encodeURIComponent(this.urls)
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.error) {
+                            this.status = 'error';
+                            this.isProcessing = false;
+                            return;
+                        }
+                        this.total = data.total;
+                        this.checkProgress();
+                        this.checkResult();
+                    });
+                },
+
+                checkProgress() {
+                    if (!this.isProcessing) return;
+
+                    fetch('/progress')
+                        .then(response => response.json())
+                        .then(data => {
+                            this.current = data.current;
+                            this.progress = (data.current / data.total) * 100;
+                            this.progressText = `${data.current} из ${data.total}`;
+                            
+                            if (data.status !== 'completed' && data.status !== 'error') {
+                                setTimeout(() => this.checkProgress(), 1000);
+                            }
+                        });
+                },
+
+                checkResult() {
+                    if (!this.isProcessing) return;
+
+                    fetch('/result')
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === 'waiting') {
+                                setTimeout(() => this.checkResult(), 1000);
+                                return;
+                            }
+
+                            if (data.success) {
+                                this.status = 'completed';
+                                this.filename = data.filename;
+                            } else {
+                                this.status = 'error';
+                            }
+
+                            this.isProcessing = false;
+                            this.isCompleted = true;
+                        });
+                }
+            }
+        }
+    </script>
+</body>
+</html>
