@@ -9,7 +9,6 @@ from typing import Dict, Optional, List
 from datetime import datetime
 from colorama import init, Fore, Style
 
-# Инициализация colorama для цветного вывода
 init()
 
 class EtsyParser:
@@ -24,7 +23,6 @@ class EtsyParser:
         }
         
     def _make_request(self, url: str, retries: int = 3) -> Optional[requests.Response]:
-        """Выполняет HTTP-запрос с повторными попытками"""
         for attempt in range(retries):
             try:
                 time.sleep(random.uniform(2, 5))
@@ -39,7 +37,6 @@ class EtsyParser:
         return None
 
     def _extract_price(self, soup: BeautifulSoup) -> str:
-        """Извлекает цену товара"""
         price_selectors = [
             ('p', 'wt-text-title-larger'),
             ('span', 'wt-text-title-largest'),
@@ -53,10 +50,9 @@ class EtsyParser:
                 price_match = re.search(r'(?:CA)?\$\s*(\d+\.?\d*)', price_text)
                 if price_match:
                     return price_match.group(1)
-        return "Price not found"
+        return ""
 
     def _extract_images(self, soup: BeautifulSoup) -> List[str]:
-        """Извлекает URL изображений"""
         image_urls = []
         
         image_selectors = [
@@ -80,7 +76,6 @@ class EtsyParser:
         return image_urls
 
     def parse_product(self, url: str) -> Optional[Dict]:
-        """Парсит страницу товара"""
         print(f"\n{Fore.CYAN}Начинаем парсинг: {url}{Style.RESET_ALL}")
         
         response = self._make_request(url)
@@ -91,7 +86,7 @@ class EtsyParser:
         
         # Извлекаем заголовок
         title_element = soup.find('h1', attrs={"data-buy-box-listing-title": "true"})
-        title = title_element.text.strip() if title_element else "Title not found"
+        title = title_element.text.strip() if title_element else ""
         print(f"{Fore.GREEN}Заголовок найден: {title}{Style.RESET_ALL}")
         
         # Извлекаем цену
@@ -99,12 +94,12 @@ class EtsyParser:
         print(f"{Fore.GREEN}Цена найдена: {price}{Style.RESET_ALL}")
         
         # Извлекаем описание
-        description = "Description not found"
+        description = ""
         script = soup.find('script', type='application/ld+json')
         if script:
             try:
                 data = json.loads(script.string)
-                description = data.get('description', description)
+                description = data.get('description', '')
                 print(f"{Fore.GREEN}Описание успешно извлечено{Style.RESET_ALL}")
             except json.JSONDecodeError:
                 print(f"{Fore.YELLOW}Не удалось извлечь описание из JSON{Style.RESET_ALL}")
@@ -121,38 +116,72 @@ class EtsyParser:
         image_urls = self._extract_images(soup)
         print(f"{Fore.GREEN}Найдено изображений: {len(image_urls)}{Style.RESET_ALL}")
         
-        # Формируем данные товара
+        # Создаем словарь со всеми полями из шаблона
         product_data = {
-            'title': title,
-            'price': price,
-            'description': description,
-            'tags': ', '.join(tags) if tags else "No tags found",
-            'source_url': url,
-            'parsed_at': datetime.now().isoformat()
+            'Title': title,
+            'Description': description,
+            'Category': '',
+            'Who made it?': '',
+            'What is it?': '',
+            'When was it made?': '',
+            'Renewal options': '',
+            'Product type': '',
+            'Tags': ', '.join(tags) if tags else '',
+            'Materials': '',
+            'Production partners': '',
+            'Section': '',
+            'Price': price,
+            'Quantity': '',
+            'SKU': '',
+            'Variation 1': '',
+            'V1 Option': '',
+            'Variation 2': '',
+            'V2 Option': '',
+            'Var Price': '',
+            'Var Quantity': '',
+            'Var SKU': '',
+            'Var Visibility': '',
+            'Var Photo': '',
+            'Shipping profile': '',
+            'Weight': '',
+            'Length': '',
+            'Width': '',
+            'Height': '',
+            'Return policy': '',
+            'Video 1': '',
+            'Digital file 1': '',
+            'Digital file 2': '',
+            'Digital file 3': '',
+            'Digital file 4': '',
+            'Digital file 5': ''
         }
         
         # Добавляем фотографии
         for i in range(1, 11):
-            product_data[f'Photo {i}'] = image_urls[i-1] if i <= len(image_urls) else ''
+            photo_key = f'Photo {i}'
+            product_data[photo_key] = image_urls[i-1] if i <= len(image_urls) else ''
         
         print(f"{Fore.GREEN}Парсинг успешно завершен!{Style.RESET_ALL}")
         return product_data
 
-    def save_to_csv(self, data: Dict, filename: str = None):
-        """Сохраняет данные в CSV файл"""
-        if filename is None:
-            filename = f'etsy_products_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-        
-        columns = [
-            'title', 'price', 'description', 'tags', 'source_url', 'parsed_at'
-        ] + [f'Photo {i}' for i in range(1, 11)]
+    def update_csv_template(self, data: Dict, template_path: str = 'etsy-import-template.csv', output_path: str = None):
+        """Обновляет существующий CSV шаблон данными"""
+        if output_path is None:
+            output_path = f'etsy_products_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
         
         try:
-            with open(filename, 'w', newline='', encoding='utf-8') as file:
-                writer = csv.DictWriter(file, fieldnames=columns)
+            # Читаем заголовки из шаблона
+            with open(template_path, 'r', newline='', encoding='utf-8') as template_file:
+                reader = csv.reader(template_file)
+                headers = next(reader)
+            
+            # Записываем данные в новый файл
+            with open(output_path, 'w', newline='', encoding='utf-8') as output_file:
+                writer = csv.DictWriter(output_file, fieldnames=headers)
                 writer.writeheader()
                 writer.writerow(data)
-            print(f"\n{Fore.GREEN}Данные успешно сохранены в {filename}{Style.RESET_ALL}")
+            
+            print(f"\n{Fore.GREEN}Данные успешно сохранены в {output_path}{Style.RESET_ALL}")
         except Exception as e:
             print(f"\n{Fore.RED}Ошибка при сохранении в CSV: {str(e)}{Style.RESET_ALL}")
 
@@ -164,14 +193,14 @@ def main():
         print(f"\n{Fore.CYAN}=== Начало работы парсера ==={Style.RESET_ALL}")
         product_data = parser.parse_product(url)
         if product_data:
-            parser.save_to_csv(product_data)
+            parser.update_csv_template(product_data)
             print(f"\n{Fore.GREEN}=== Парсинг успешно завершен! ==={Style.RESET_ALL}")
             
             # Вывод основной информации
             print(f"\n{Fore.CYAN}Основная информация:{Style.RESET_ALL}")
-            print(f"Название: {product_data['title']}")
-            print(f"Цена: ${product_data['price']}")
-            print(f"Количество тегов: {len(product_data['tags'].split(','))}")
+            print(f"Название: {product_data['Title']}")
+            print(f"Цена: ${product_data['Price']}")
+            print(f"Количество тегов: {len(product_data['Tags'].split(',')) if product_data['Tags'] else 0}")
             print(f"Количество фото: {sum(1 for k, v in product_data.items() if k.startswith('Photo') and v)}")
         else:
             print(f"\n{Fore.RED}Не удалось спарсить товар.{Style.RESET_ALL}")
