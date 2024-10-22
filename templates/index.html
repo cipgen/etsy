@@ -6,107 +6,176 @@
     <title>Etsy Parser</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@2.8.2/dist/alpine.min.js" defer></script>
+    <style>
+        body {
+            background-color: #f5f5f7;
+        }
+        .apple-switch {
+            position: relative;
+            display: inline-block;
+            width: 36px;
+            height: 20px;
+        }
+        .apple-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .apple-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #e4e4e4;
+            transition: .2s;
+            border-radius: 20px;
+        }
+        .apple-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .2s;
+            border-radius: 50%;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        input:checked + .apple-slider {
+            background-color: #06c;
+        }
+        input:checked + .apple-slider:before {
+            transform: translateX(16px);
+        }
+        .upload-area {
+            border: 2px dashed #e4e4e4;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            border-color: #06c;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
-    <div x-data="parserApp()" class="container mx-auto px-4 py-8">
-        <div class="max-w-3xl mx-auto">
-            <!-- Header -->
-            <div class="text-center mb-8">
-                <h1 class="text-4xl font-bold text-gray-800 mb-2">Etsy Product Parser</h1>
-                <p class="text-gray-600">Выберите способ загрузки URLs товаров Etsy</p>
+<body class="min-h-screen py-12 px-4 sm:px-6">
+    <div x-data="parserApp()" class="max-w-3xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-12">
+            <h1 class="text-3xl font-medium text-gray-900 mb-2">Etsy Parser</h1>
+            <p class="text-gray-500">Optimize your product listings with AI</p>
+        </div>
+
+        <!-- AI Controls Section - Redesigned -->
+        <div class="mb-8">
+            <div class="inline-flex items-center space-x-8 bg-white rounded-full px-6 py-3 shadow-sm">
+                <div class="flex items-center space-x-3">
+                    <label class="apple-switch">
+                        <input type="checkbox" x-model="aiSettings.title" checked>
+                        <span class="apple-slider"></span>
+                    </label>
+                    <span class="text-sm text-gray-700">Title AI</span>
+                </div>
+                <div class="w-px h-4 bg-gray-200"></div>
+                <div class="flex items-center space-x-3">
+                    <label class="apple-switch">
+                        <input type="checkbox" x-model="aiSettings.description" checked>
+                        <span class="apple-slider"></span>
+                    </label>
+                    <span class="text-sm text-gray-700">Description AI</span>
+                </div>
+                <div class="w-px h-4 bg-gray-200"></div>
+                <div class="flex items-center space-x-3">
+                    <label class="apple-switch">
+                        <input type="checkbox" x-model="aiSettings.tags" checked>
+                        <span class="apple-slider"></span>
+                    </label>
+                    <span class="text-sm text-gray-700">Tags AI</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Method Section -->
+        <div class="bg-white rounded-2xl p-8 shadow-sm">
+            <div class="flex space-x-4 mb-8">
+                <button 
+                    @click="inputMethod = 'manual'"
+                    :class="inputMethod === 'manual' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                    class="flex-1 py-2.5 px-6 rounded-full text-sm font-medium transition-all duration-200">
+                    Manual Input
+                </button>
+                <button 
+                    @click="inputMethod = 'file'"
+                    :class="inputMethod === 'file' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+                    class="flex-1 py-2.5 px-6 rounded-full text-sm font-medium transition-all duration-200">
+                    File Upload
+                </button>
             </div>
 
-            <!-- Input Method Selector -->
-            <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
-                <div class="flex justify-center space-x-6 mb-6">
-                    <button 
-                        @click="inputMethod = 'manual'"
-                        :class="{'bg-blue-500 text-white': inputMethod === 'manual', 'bg-gray-200 text-gray-700': inputMethod !== 'manual'}"
-                        class="flex-1 py-3 px-6 rounded-lg font-medium transition duration-200 max-w-[200px]">
-                        Ввод URLs
-                    </button>
-                    <button 
-                        @click="inputMethod = 'file'"
-                        :class="{'bg-blue-500 text-white': inputMethod === 'file', 'bg-gray-200 text-gray-700': inputMethod !== 'file'}"
-                        class="flex-1 py-3 px-6 rounded-lg font-medium transition duration-200 max-w-[200px]">
-                        Загрузка файла
-                    </button>
-                </div>
+            <!-- Manual Input -->
+            <div x-show="inputMethod === 'manual'" x-transition>
+                <textarea 
+                    x-model="urls" 
+                    :disabled="isProcessing"
+                    class="w-full h-40 p-4 rounded-xl border border-gray-200 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all duration-200"
+                    placeholder="Enter Etsy URLs (one per line)"></textarea>
+            </div>
 
-                <!-- Manual Input Section -->
-                <div x-show="inputMethod === 'manual'" x-transition>
-                    <div class="mb-4">
-                        <p class="text-sm text-gray-600 mb-2">Вставьте URL-адреса товаров Etsy (по одному в строке)</p>
-                        <textarea 
-                            x-model="urls" 
-                            :disabled="isProcessing"
-                            class="w-full h-48 p-4 border rounded-lg mb-4 focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                            placeholder="https://www.etsy.com/listing/...&#10;https://www.etsy.com/listing/..."></textarea>
-                    </div>
-                    <button 
-                        @click="startParsing"
-                        :disabled="isProcessing || !urls.trim()"
-                        class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition duration-200">
-                        <span x-show="!isProcessing">Начать парсинг</span>
-                        <span x-show="isProcessing">Обработка...</span>
-                    </button>
-                </div>
-
-                <!-- File Upload Section -->
-                <div x-show="inputMethod === 'file'" x-transition>
-                    <div class="mb-4">
-                        <p class="text-sm text-gray-600 mb-2">Загрузите файл со списком URL-адресов (один URL на строку)</p>
-                        <div class="flex items-center justify-center w-full">
-                            <label class="w-full flex flex-col items-center px-4 py-6 bg-white text-gray-700 rounded-lg border-2 border-dashed border-gray-300 cursor-pointer hover:bg-gray-50">
-                                <div class="flex flex-col items-center justify-center pt-5 pb-6">
-                                    <svg class="w-10 h-10 text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
-                                    </svg>
-                                    <p class="mb-2 text-sm text-gray-500">
-                                        <span x-show="!selectedFile">Нажмите для выбора файла</span>
-                                        <span x-show="selectedFile" x-text="selectedFileName"></span>
-                                    </p>
-                                    <p class="text-xs text-gray-500">.txt или .csv файл</p>
-                                </div>
-                                <input 
-                                    type="file" 
-                                    class="hidden" 
-                                    accept=".txt,.csv"
-                                    @change="handleFileSelect"
-                                    :disabled="isProcessing">
-                            </label>
+            <!-- File Upload -->
+            <div x-show="inputMethod === 'file'" x-transition>
+                <div class="upload-area rounded-xl p-8 text-center">
+                    <input 
+                        type="file" 
+                        class="hidden" 
+                        accept=".txt,.csv"
+                        @change="handleFileSelect"
+                        :disabled="isProcessing"
+                        id="file-upload">
+                    <label for="file-upload" class="cursor-pointer">
+                        <div class="space-y-4">
+                            <svg class="w-8 h-8 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                            </svg>
+                            <div class="text-gray-500 text-sm">
+                                <span x-show="!selectedFile">Drop your file here or click to upload</span>
+                                <span x-show="selectedFile" x-text="selectedFileName"></span>
+                            </div>
+                            <div class="text-xs text-gray-400">.txt or .csv files</div>
                         </div>
-                    </div>
-                    <button 
-                        @click="startParsingFile"
-                        :disabled="isProcessing || !selectedFile"
-                        class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition duration-200">
-                        <span x-show="!isProcessing">Начать парсинг</span>
-                        <span x-show="isProcessing">Обработка...</span>
-                    </button>
+                    </label>
                 </div>
             </div>
 
-            <!-- Progress Section -->
-            <div x-show="isProcessing || isCompleted" class="bg-white rounded-lg shadow-lg p-6">
-                <div class="mb-4">
-                    <div class="flex justify-between mb-2">
-                        <span class="text-sm font-medium text-gray-700">Прогресс</span>
-                        <span class="text-sm font-medium text-gray-700" x-text="progressText"></span>
-                    </div>
-                    <div class="w-full bg-gray-200 rounded-full h-2.5">
-                        <div class="bg-blue-500 h-2.5 rounded-full transition-all duration-300"
-                             :style="'width: ' + progress + '%'"></div>
-                    </div>
-                </div>
+            <!-- Action Button -->
+            <button 
+                @click="inputMethod === 'manual' ? startParsing() : startParsingFile()"
+                :disabled="isProcessing || (inputMethod === 'manual' ? !urls.trim() : !selectedFile)"
+                class="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 px-6 rounded-full disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200">
+                <span x-show="!isProcessing">Start Processing</span>
+                <span x-show="isProcessing">Processing...</span>
+            </button>
+        </div>
 
-                <!-- Status Messages -->
-                <div x-show="status" class="mt-4">
+        <!-- Progress Section -->
+        <div x-show="isProcessing || isCompleted" 
+             x-transition
+             class="mt-8 bg-white rounded-2xl p-6 shadow-sm">
+            <div class="space-y-4">
+                <div class="flex justify-between text-sm text-gray-600">
+                    <span>Progress</span>
+                    <span x-text="progressText"></span>
+                </div>
+                <div class="w-full bg-gray-100 rounded-full h-1">
+                    <div class="bg-blue-600 h-1 rounded-full transition-all duration-300"
+                         :style="'width: ' + progress + '%'"></div>
+                </div>
+                <div x-show="status" class="text-sm">
                     <div x-show="status === 'completed'" class="text-green-600">
-                        ✅ Парсинг завершен! Файл сохранен как: <span x-text="filename" class="font-mono"></span>
+                        Processing completed. File saved as: <span x-text="filename" class="font-mono"></span>
                     </div>
                     <div x-show="status === 'error'" class="text-red-600">
-                        ❌ Произошла ошибка при парсинге
+                        An error occurred during processing
                     </div>
                 </div>
             </div>
@@ -128,108 +197,17 @@
                 status: '',
                 filename: '',
                 progressText: '',
-
+                aiSettings: {
+                    title: true,
+                    description: true,
+                    tags: true
+                },
                 handleFileSelect(event) {
                     const file = event.target.files[0];
                     if (file) {
                         this.selectedFile = file;
                         this.selectedFileName = file.name;
                     }
-                },
-
-                startParsingFile() {
-                    if (!this.selectedFile) return;
-
-                    const formData = new FormData();
-                    formData.append('file', this.selectedFile);
-
-                    this.isProcessing = true;
-                    this.isCompleted = false;
-                    this.progress = 0;
-                    this.status = '';
-
-                    fetch('/parse-file', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.error) {
-                            this.status = 'error';
-                            this.isProcessing = false;
-                            return;
-                        }
-                        this.total = data.total;
-                        this.checkProgress();
-                        this.checkResult();
-                    });
-                },
-
-                startParsing() {
-                    if (!this.urls.trim()) return;
-
-                    this.isProcessing = true;
-                    this.isCompleted = false;
-                    this.progress = 0;
-                    this.status = '';
-
-                    fetch('/parse', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: 'urls=' + encodeURIComponent(this.urls)
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.error) {
-                            this.status = 'error';
-                            this.isProcessing = false;
-                            return;
-                        }
-                        this.total = data.total;
-                        this.checkProgress();
-                        this.checkResult();
-                    });
-                },
-
-                checkProgress() {
-                    if (!this.isProcessing) return;
-
-                    fetch('/progress')
-                        .then(response => response.json())
-                        .then(data => {
-                            this.current = data.current;
-                            this.progress = (data.current / data.total) * 100;
-                            this.progressText = `${data.current} из ${data.total}`;
-                            
-                            if (data.status !== 'completed' && data.status !== 'error') {
-                                setTimeout(() => this.checkProgress(), 1000);
-                            }
-                        });
-                },
-
-                checkResult() {
-                    if (!this.isProcessing) return;
-
-                    fetch('/result')
-                        .then(response => response.json())
-                        .then(data => {
-                            if (data.status === 'waiting') {
-                                setTimeout(() => this.checkResult(), 1000);
-                                return;
-                            }
-
-                            if (data.success) {
-                                this.status = 'completed';
-                                this.filename = data.filename;
-                            } else {
-                                this.status = 'error';
-                            }
-
-                            this.isProcessing = false;
-                            this.isCompleted = true;
-                        });
                 }
             }
         }
